@@ -1,0 +1,37 @@
+// Prisma schema for Bridge MVP
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  name      String
+  email     String  @unique
+  password  String
+  // forms     Form[]  // Remove legacy relation
+}
+
+model Form {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  fields    Json
+  settings  Json
+  isDraft   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  paymentMethods PaymentMethods[]
+}
+
+model PaymentMethods {
+  id        String   @id @default(uuid())
+  form      Form     @relation(fields: [formId], references: [id])
+  formId    String
+  methods   Json
+}
