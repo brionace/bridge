@@ -1,3 +1,16 @@
+// Helper to convert CSS string to style object
+function cssStringToObject(cssString) {
+  if (!cssString || typeof cssString !== "string") return {};
+  return cssString.split(";").reduce((acc, rule) => {
+    const [prop, value] = rule.split(":").map((s) => s && s.trim());
+    if (prop && value) {
+      // Convert kebab-case to camelCase
+      const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      acc[camelProp] = value;
+    }
+    return acc;
+  }, {});
+}
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { syncFormToBrowserStorage } from "../utils/formSync";
@@ -93,26 +106,6 @@ function FieldEditor({ field, onChange, onDelete }) {
 }
 
 export default function FormBuilder() {
-  async function handlePublish() {
-    if (!draftIdParam) return;
-    try {
-      // Only include settings if not empty
-      const settingsObj =
-        settings && Object.keys(settings).length > 0 ? { settings } : {};
-      const payload = { name, pages, isDraft: false, ...settingsObj };
-      const res = await axios.put(`/api/forms/${draftIdParam}`, payload);
-      // Remove from browser storage
-      sessionStorage.removeItem(`form:preview:${draftIdParam}`);
-      const raw = sessionStorage.getItem("form:draftIndex");
-      let arr = raw ? JSON.parse(raw) : [];
-      arr = arr.filter((x) => x !== draftIdParam);
-      sessionStorage.setItem("form:draftIndex", JSON.stringify(arr));
-      // Redirect to live builder
-      navigate(`/builder/${draftIdParam}`);
-    } catch (err) {
-      alert("Failed to publish draft.");
-    }
-  }
   const navigate = useNavigate();
   const { state, search } = useLocation();
   const { id } = useParams();
@@ -122,10 +115,10 @@ export default function FormBuilder() {
 
   const [name, setName] = useState(template?.name || "");
   const initialPages = useMemo(() => {
-    if (template?.fields) {
-      if (Array.isArray(template.fields) && template.fields[0]?.fields)
-        return template.fields;
-      return template.fields.map((fields, i) => ({
+    if (template?.pages) {
+      if (Array.isArray(template.pages) && template.pages[0]?.fields)
+        return template.pages;
+      return template.pages.map((fields, i) => ({
         pageName: `Page ${i + 1}`,
         fields,
       }));
@@ -247,10 +240,7 @@ export default function FormBuilder() {
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
-    // Only include settings if not empty
-    const settingsObj =
-      settings && Object.keys(settings).length > 0 ? { settings } : {};
-    const payload = { name, pages, ...settingsObj };
+    const payload = { name, pages };
 
     // Determine effective id for this save
     let savedFormId = null;
@@ -265,7 +255,7 @@ export default function FormBuilder() {
         syncFormToBrowserStorage(res.data);
       } catch (e) {
         // swallow backend errors so we can still show local preview
-        console.log(e.message);
+        console.log(e);
       }
     } else if (draftIdParam) {
       // Always seed preview for drafts
@@ -281,7 +271,9 @@ export default function FormBuilder() {
           ...payload,
         });
         if (res.data) syncFormToBrowserStorage(res.data);
-      } catch {}
+      } catch (e) {
+        console.log(e);
+      }
     } else {
       // Creating a new form (non-draft)
       try {
@@ -334,6 +326,23 @@ export default function FormBuilder() {
       }
     } catch {}
     setSaving(false);
+  }
+  async function handlePublish() {
+    if (!draftIdParam) return;
+    try {
+      const payload = { name, pages, published: true };
+      const res = await axios.put(`/api/forms/${draftIdParam}`, payload);
+      // Remove from browser storage
+      sessionStorage.removeItem(`form:preview:${draftIdParam}`);
+      const raw = sessionStorage.getItem("form:draftIndex");
+      let arr = raw ? JSON.parse(raw) : [];
+      arr = arr.filter((x) => x !== draftIdParam);
+      sessionStorage.setItem("form:draftIndex", JSON.stringify(arr));
+      // Redirect to live builder
+      navigate(`/builder/${draftIdParam}`);
+    } catch (err) {
+      alert("Failed to publish draft.");
+    }
   }
   async function handleDeleteForm(id) {
     try {
@@ -510,14 +519,12 @@ export default function FormBuilder() {
           id: draftIdParam,
           name,
           pages,
-          settings: {},
         };
         const doc = raw ? JSON.parse(raw) : fallback;
         await axios.post("/api/forms", {
           id: draftIdParam,
           name: doc.name || name,
           pages: doc.pages || pages,
-          settings: doc.settings || {},
         });
       } catch {}
     })();
@@ -544,9 +551,7 @@ export default function FormBuilder() {
         return;
       }
     }
-    setPreviewJson(
-      JSON.stringify({ name, fields: pages, settings: {} }, null, 2)
-    );
+    setPreviewJson(JSON.stringify({ name, pages, published: false }, null, 2));
     setPreviewSource("local");
   }
 
@@ -600,7 +605,6 @@ export default function FormBuilder() {
                   fields,
                 }))
             : [{ pageName: "Page 1", fields: [] }],
-          settings: {},
           updatedAt: Date.now(),
         };
         sessionStorage.setItem(`form:preview:${id}`, JSON.stringify(doc));
@@ -701,12 +705,14 @@ export default function FormBuilder() {
                       {page.pageName || `Page ${i + 1}`}
                     </button>
                     {i !== 0 && currentPage === i && (
-                      <button
-                        className="text-red-600 px-2 py-1 rounded border"
-                        onClick={() => removePage(i)}
-                      >
-                        &times;
-                      </button>
+                      <div>
+                        <button
+                          className="text-red-600 px-2 py-1 rounded border"
+                          onClick={() => removePage(currentPage)}
+                        >
+                          &times;
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -761,27 +767,68 @@ export default function FormBuilder() {
             </div>
           </section>
           <div className="max-w-xl mx-auto mt-4">
-            {pages[currentPage].fields.length === 0 ? (
-              <p className="text-center text-gray-500">
-                No fields yet. Use the Add Field button to get started.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {pages[currentPage].fields.map((field, idx) => (
-                  <FieldEditor
-                    key={idx}
-                    field={field}
-                    onChange={(f) => updateField(idx, f)}
-                    onDelete={() => deleteField(idx)}
-                  />
-                ))}
-              </div>
-            )}
-            {!hasAnyField && (
-              <p className="text-sm text-red-600 mt-3">
-                Add at least one field to save.
-              </p>
-            )}
+            {/* Page name and style editor for current page */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Page Name
+              </label>
+              <input
+                className="border p-2 rounded w-full mb-2"
+                type="text"
+                value={pages[currentPage].pageName || ""}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  setPages((pages) =>
+                    pages.map((page, idx) =>
+                      idx === currentPage
+                        ? { ...page, pageName: newName }
+                        : page
+                    )
+                  );
+                }}
+                placeholder={`Page ${currentPage + 1}`}
+              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Page Style (CSS string)
+              </label>
+              <textarea
+                className="border p-2 rounded w-full"
+                rows={3}
+                value={pages[currentPage].style || ""}
+                onChange={(e) => {
+                  const cssString = e.target.value;
+                  setPages((pages) =>
+                    pages.map((page, idx) =>
+                      idx === currentPage ? { ...page, style: cssString } : page
+                    )
+                  );
+                }}
+                placeholder="e.g. background: #f9fafb; color: #333;"
+              />
+            </div>
+            <div style={cssStringToObject(pages[currentPage].style)}>
+              {pages[currentPage].fields.length === 0 ? (
+                <p className="text-center text-gray-500">
+                  No fields yet. Use the Add Field button to get started.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {pages[currentPage].fields.map((field, idx) => (
+                    <FieldEditor
+                      key={idx}
+                      field={field}
+                      onChange={(f) => updateField(idx, f)}
+                      onDelete={() => deleteField(idx)}
+                    />
+                  ))}
+                </div>
+              )}
+              {!hasAnyField && (
+                <p className="text-sm text-red-600 mt-3">
+                  Add at least one field to save.
+                </p>
+              )}
+            </div>
           </div>
         </div>
         {/* Right */}

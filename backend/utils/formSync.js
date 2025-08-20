@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 /**
  * Save or update a form in the DB, and return the canonical form object.
- * @param {Object} form - The form object to save. Should include id, name, fields, settings, isDraft.
+ * @param {Object} form - The form object to save. Should include id, name, fields, published.
  * @returns {Promise<Object>} - The saved form from DB.
  */
 async function saveFormToDB(form) {
@@ -17,9 +17,8 @@ async function saveFormToDB(form) {
       where: { id: form.id },
       data: {
         name: form.name,
-        fields: form.fields,
-        settings: form.settings || {},
-        isDraft: !!form.isDraft,
+        pages: form.pages,
+        published: !!form.published,
         updatedAt: new Date(),
       },
     });
@@ -28,9 +27,8 @@ async function saveFormToDB(form) {
     return await prisma.form.create({
       data: {
         name: form.name,
-        fields: form.fields,
-        settings: form.settings || {},
-        isDraft: !!form.isDraft,
+        pages: form.pages,
+        published: !!form.published,
         updatedAt: new Date(),
       },
     });

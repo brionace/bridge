@@ -21,17 +21,8 @@ model Form {
   id        String   @id @default(uuid())
   userId    String
   name      String
-  fields    Json
-  settings  Json
-  isDraft   Boolean  @default(true)
+  pages     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  paymentMethods PaymentMethods[]
-}
-
-model PaymentMethods {
-  id        String   @id @default(uuid())
-  form      Form     @relation(fields: [formId], references: [id])
-  formId    String
-  methods   Json
+  published Boolean  @default(false)
 }

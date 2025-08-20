@@ -72,7 +72,7 @@ export default function Dashboard() {
     try {
       const payload = {
         name: `Copy of ${service.name}`,
-        fields: service.fields || [],
+        pages: service.pages || [],
         settings: service.settings || {},
       };
       const res = await axios.post("/api/forms", payload);

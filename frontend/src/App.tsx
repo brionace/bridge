@@ -3,7 +3,7 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import FormBuilder from "./pages/FormBuilder";
 import Register from "./pages/Register";
-import Login from "./pages/Login";
+// import Login from "./pages/Login";
 import Preview from "./pages/Preview";
 
 function App() {
@@ -14,7 +14,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/builder" element={<FormBuilder />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
+        {/* <Route path="/login" element={<Login />} /> */}
         <Route path="/builder/:id" element={<FormBuilder />} />
         <Route path="/preview/:formId" element={<Preview />} />
       </Routes>

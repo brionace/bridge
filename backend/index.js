@@ -31,17 +31,15 @@ app.post("/api/preview", async (req, res) => {
         id: formId,
         name: payload.name || "",
         userId: payload.userId || "anon",
-        fields: payload.fields ?? [],
-        settings: payload.settings ?? {},
-        isDraft: true,
+        pages: payload.fields ?? [],
+        published: false,
       };
       await prisma.form.upsert({
         where: { id: formId },
         update: {
           name: data.name,
-          fields: data.fields,
-          settings: data.settings,
-          isDraft: true,
+          pages: data.pages,
+          published: false,
         },
         create: data,
       });
@@ -72,9 +70,8 @@ app.get("/api/forms/:id/preview", async (req, res) => {
       return res.json({
         id: form.id,
         name: form.name,
-        fields: form.fields,
-        settings: form.settings || {},
-        isDraft: form.isDraft ?? true,
+        pages: form.pages,
+        published: form.published ?? false,
       });
     }
   } catch (e) {
@@ -91,7 +88,7 @@ app.get("/api/forms", async (req, res) => {
   try {
     const { default: prisma } = await import("./prismaClient.js");
     const forms = await prisma.form.findMany({
-      where: { isDraft: true },
+      where: { published: false },
     });
     res.json(forms);
   } catch (e) {
@@ -107,15 +104,14 @@ app.get("/api/forms", async (req, res) => {
 app.put("/api/forms/:id", async (req, res) => {
   const { default: prisma } = await import("./prismaClient.js");
   const id = String(req.params.id);
-  const { name, fields, settings, isDraft } = req.body;
+  const { name, pages, published } = req.body;
   try {
     const updated = await prisma.form.update({
       where: { id },
       data: {
         name,
-        fields,
-        settings,
-        isDraft: typeof isDraft === "boolean" ? isDraft : undefined,
+        pages,
+        published: typeof published === "boolean" ? published : undefined,
       },
     });
     res.json(updated);

@@ -57,21 +57,14 @@ export async function deleteService(req, res) {
 // Create a new service (form)
 export async function createService(req, res) {
   try {
-    const {
-      name,
-      userId = "anon",
-      fields = [],
-      settings = {},
-      isDraft = false,
-    } = req.body;
+    const { name, userId = "anon", pages = [], published = false } = req.body;
     const { default: prisma } = await import("../prismaClient.js");
     const form = await prisma.form.create({
       data: {
         name,
         userId,
-        fields,
-        settings,
-        isDraft,
+        pages,
+        published,
       },
     });
     res.status(201).json({ id: form.id, ...form });
@@ -81,14 +74,14 @@ export async function createService(req, res) {
 }
 
 export async function createForm(req, res) {
-  const { name, fields, settings } = req.body;
+  const { name, fields, published } = req.body;
   try {
     const form = await prisma.form.create({
       data: {
         userId: req.user.id,
         name,
-        fields,
-        settings,
+        pages,
+        published,
       },
     });
     res.json(form);

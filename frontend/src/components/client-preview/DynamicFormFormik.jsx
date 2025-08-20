@@ -9,12 +9,10 @@ import * as Yup from "yup";
  * @param {Function} onSubmit - Callback for form submission.
  * @param {Object} i18n - Optional i18n mapping for labels/placeholders.
  */
-export default function DynamicFormFormik({
-  fields = [],
-  settings = {},
-  onSubmit,
-  i18n = {},
-}) {
+export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
+  const fields = form.pages || [];
+  const settings = form.settings || {};
+  console.log({ form });
   // Support grouped fields: fields is now array of groups
   // Each group: { label, fields: [...] }
   const allFields = Array.isArray(fields)
@@ -58,14 +56,7 @@ export default function DynamicFormFormik({
     // Custom component support
     if (field.component) {
       const CustomComponent = field.component;
-      return (
-        <CustomComponent
-          key={idx}
-          field={field}
-          formik={formik}
-          {...commonProps}
-        />
-      );
+      return <CustomComponent field={field} formik={formik} {...commonProps} />;
     }
 
     // Standard field types
@@ -227,7 +218,7 @@ export default function DynamicFormFormik({
                 </div>
               ))
             : null}
-          <button
+          {/* <button
             type="submit"
             className={
               settings.submitClass || "bg-blue-600 text-white px-4 py-2 rounded"
@@ -237,7 +228,7 @@ export default function DynamicFormFormik({
             }
           >
             {i18n[settings.submitLabel] || settings.submitLabel || "Submit"}
-          </button>
+          </button> */}
         </Form>
       )}
     </Formik>

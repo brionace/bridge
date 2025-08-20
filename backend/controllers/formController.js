@@ -1,14 +1,14 @@
 import prisma from "../prismaClient.js";
 
 export async function createForm(req, res) {
-  const { name, config, fields, paymentEnabled } = req.body;
+  const { name, config, pages, paymentEnabled } = req.body;
   try {
     const form = await prisma.form.create({
       data: {
         userId: req.user.id,
         name,
         config,
-        fields,
+        pages,
         payments: paymentEnabled
           ? [{ create: { status: "pending", reference: "", amount: 0 } }]
           : undefined,

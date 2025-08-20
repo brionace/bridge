@@ -15,8 +15,7 @@ export default function ClientPreview({ form = {} }) {
       {/* Skeleton Hero Section */}
       <section className="relative flex items-center justify-center mb-8">
         <DynamicFormFormik
-          fields={form.fields}
-          settings={form.settings}
+          form={form}
           onSubmit={(values) => console.log(values)}
         />
       </section>
@@ -46,7 +45,7 @@ export default function ClientPreview({ form = {} }) {
       {/* Skeleton Booking Form Card */}
       {/* <main className="flex-1 flex items-center justify-center">
         <DynamicFormFormik
-          fields={form.fields}
+          pages={form.pages}
           settings={form.settings}
           onSubmit={(values) => console.log(values)}
         />
