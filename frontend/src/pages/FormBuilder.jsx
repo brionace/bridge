@@ -99,7 +99,7 @@ export default function FormBuilder() {
       // Only include settings if not empty
       const settingsObj =
         settings && Object.keys(settings).length > 0 ? { settings } : {};
-      const payload = { name, fields: pages, isDraft: false, ...settingsObj };
+      const payload = { name, pages, isDraft: false, ...settingsObj };
       const res = await axios.put(`/api/forms/${draftIdParam}`, payload);
       // Remove from browser storage
       sessionStorage.removeItem(`form:preview:${draftIdParam}`);
@@ -250,7 +250,7 @@ export default function FormBuilder() {
     // Only include settings if not empty
     const settingsObj =
       settings && Object.keys(settings).length > 0 ? { settings } : {};
-    const payload = { name, fields: pages, ...settingsObj };
+    const payload = { name, pages, ...settingsObj };
 
     // Determine effective id for this save
     let savedFormId = null;
@@ -363,12 +363,12 @@ export default function FormBuilder() {
         const res = await axios.get(`/api/forms/${id}`);
         const form = res.data;
         setName(form.name || "");
-        if (Array.isArray(form.fields)) {
-          if (form.fields.length && form.fields[0]?.fields) {
-            setPages(ensureFieldNames(form.fields));
+        if (Array.isArray(form.pages)) {
+          if (form.pages.length && form.pages[0]?.fields) {
+            setPages(ensureFieldNames(form.pages));
           } else {
             setPages(
-              form.fields.map((fields, i) => ({
+              form.pages.map((fields, i) => ({
                 pageName: `Page ${i + 1}`,
                 fields: fields.map((field, idx) => ({
                   ...field,
@@ -390,12 +390,12 @@ export default function FormBuilder() {
           if (raw) {
             const doc = JSON.parse(raw);
             setName(doc.name || "");
-            if (Array.isArray(doc.fields)) {
-              if (doc.fields.length && doc.fields[0]?.fields) {
-                setPages(ensureFieldNames(doc.fields));
+            if (Array.isArray(doc.pages)) {
+              if (doc.pages.length && doc.pages[0]?.fields) {
+                setPages(ensureFieldNames(doc.pages));
               } else {
                 setPages(
-                  doc.fields.map((fields, i) => ({
+                  doc.pages.map((fields, i) => ({
                     pageName: `Page ${i + 1}`,
                     fields: fields.map((field, idx) => ({
                       ...field,
@@ -509,14 +509,14 @@ export default function FormBuilder() {
         const fallback = {
           id: draftIdParam,
           name,
-          fields: pages,
+          pages,
           settings: {},
         };
         const doc = raw ? JSON.parse(raw) : fallback;
         await axios.post("/api/forms", {
           id: draftIdParam,
           name: doc.name || name,
-          fields: doc.fields || pages,
+          pages: doc.pages || pages,
           settings: doc.settings || {},
         });
       } catch {}
@@ -592,10 +592,10 @@ export default function FormBuilder() {
         const doc = {
           id,
           name: tpl?.name || "",
-          fields: tpl?.fields
-            ? Array.isArray(tpl.fields) && tpl.fields[0]?.fields
-              ? tpl.fields
-              : tpl.fields.map((fields, i) => ({
+          pages: tpl?.pages
+            ? Array.isArray(tpl.pages) && tpl.pages[0]?.fields
+              ? tpl.pages
+              : tpl.pages.map((fields, i) => ({
                   pageName: `Page ${i + 1}`,
                   fields,
                 }))
@@ -621,7 +621,7 @@ export default function FormBuilder() {
         const res = await axios.post("/api/forms", {
           id,
           name: tpl?.name || "",
-          fields: tpl?.fields || [{ pageName: "Page 1", fields: [] }],
+          pages: tpl?.pages || [{ pageName: "Page 1", fields: [] }],
           settings: {},
         });
         syncFormToBrowserStorage(res.data);
