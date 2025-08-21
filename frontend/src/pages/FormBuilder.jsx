@@ -1,3 +1,12 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { syncFormToBrowserStorage } from "../utils/formSync";
+import axios, { supabase } from "../utils/axios";
+import { FIELD_TYPES } from "../utils/constants";
+import StyleToolbox from "../components/StyleToolbox";
+import { Wand2 } from "lucide-react";
+import { STYLE_OPTIONS } from "../components/StyleToolbox";
+
 // Helper to convert CSS string to style object
 function cssStringToObject(cssString) {
   if (!cssString || typeof cssString !== "string") return {};
@@ -11,11 +20,12 @@ function cssStringToObject(cssString) {
     return acc;
   }, {});
 }
-import React, { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { syncFormToBrowserStorage } from "../utils/formSync";
-import axios, { supabase } from "../utils/axios";
-import { FIELD_TYPES } from "../utils/constants";
+
+// Utility to extract applied style objects from style string
+function extractAppliedStyleObjects(styleStr) {
+  if (!styleStr) return [];
+  return STYLE_OPTIONS.filter((opt) => styleStr.includes(opt.css));
+}
 
 function FieldEditor({ field, onChange, onDelete }) {
   const [optionInput, setOptionInput] = useState("");
@@ -148,6 +158,7 @@ export default function FormBuilder() {
   const [previewSource, setPreviewSource] = useState("");
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showStyleToolbox, setShowStyleToolbox] = useState(null);
 
   // Persist collapse state across sessions
   useEffect(() => {
@@ -788,7 +799,7 @@ export default function FormBuilder() {
                 }}
                 placeholder={`Page ${currentPage + 1}`}
               />
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                 Page Style (CSS string)
               </label>
               <textarea
@@ -804,7 +815,51 @@ export default function FormBuilder() {
                   );
                 }}
                 placeholder="e.g. background: #f9fafb; color: #333;"
-              />
+              /> */}
+              {extractAppliedStyleObjects(pages[currentPage].style).map(
+                (opt) => (
+                  <span
+                    key={opt.css}
+                    className="inline-flex items-center px-2 py-1 bg-gray-100 rounded border text-xs gap-1"
+                  >
+                    {opt.icon}
+                    <span>{opt.label}</span>
+                    <button
+                      className="ml-1 text-red-500 hover:text-red-700"
+                      type="button"
+                      onClick={() => {
+                        setPages((pages) =>
+                          pages.map((page, idx) =>
+                            idx === currentPage
+                              ? {
+                                  ...page,
+                                  style: (page.style || "")
+                                    .replace(opt.css, "")
+                                    .replace(/\s*;\s*;/g, ";")
+                                    .trim(),
+                                }
+                              : page
+                          )
+                        );
+                      }}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                )
+              )}
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Page Style (CSS string)
+                <button
+                  className="ml-2 px-2 py-1 rounded bg-indigo-100 border inline-flex items-center gap-1"
+                  type="button"
+                  onClick={() =>
+                    setShowStyleToolbox({ type: "page", index: currentPage })
+                  }
+                >
+                  <Wand2 size={16} /> Style Toolbox
+                </button>
+              </label>
             </div>
             <div style={cssStringToObject(pages[currentPage].style)}>
               {pages[currentPage].fields.length === 0 ? (
@@ -923,6 +978,58 @@ export default function FormBuilder() {
           )}
         </div>
       </main>
+      {showStyleToolbox && (
+        <StyleToolbox
+          onInsert={(css) => {
+            if (showStyleToolbox.type === "page") {
+              setPages((pages) =>
+                pages.map((page, idx) =>
+                  idx === showStyleToolbox.index
+                    ? {
+                        ...page,
+                        style:
+                          (page.style ? page.style.trim() : "") +
+                          (page.style && !page.style.trim().endsWith(";")
+                            ? ";"
+                            : "") +
+                          " " +
+                          css,
+                      }
+                    : page
+                )
+              );
+            }
+            if (showStyleToolbox.type === "field") {
+              setPages((pages) =>
+                pages.map((page, pIdx) =>
+                  pIdx === showStyleToolbox.pageIndex
+                    ? {
+                        ...page,
+                        fields: page.fields.map((field, fIdx) =>
+                          fIdx === showStyleToolbox.fieldIndex
+                            ? {
+                                ...field,
+                                style:
+                                  (field.style ? field.style.trim() : "") +
+                                  (field.style &&
+                                  !field.style.trim().endsWith(";")
+                                    ? ";"
+                                    : "") +
+                                  " " +
+                                  css,
+                              }
+                            : field
+                        ),
+                      }
+                    : page
+                )
+              );
+            }
+            setShowStyleToolbox(null);
+          }}
+          onClose={() => setShowStyleToolbox(null)}
+        />
+      )}
     </div>
   );
 }
