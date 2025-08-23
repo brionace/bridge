@@ -74,6 +74,108 @@ export default function FormBuilder() {
     localStorage.setItem("fb:rightCollapsed", rightCollapsed ? "1" : "0");
   }, [rightCollapsed]);
 
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      function ensureFieldNames(pages) {
+        return pages.map((page, i) => ({
+          ...page,
+          fields: (page.fields || []).map((field, idx) => ({
+            ...field,
+            name: field.name || `field_${idx + 1}`,
+          })),
+        }));
+      }
+      try {
+        const res = await axios.get(`/api/forms/${id}`);
+        const form = res.data;
+        setName(form.name || "");
+        if (Array.isArray(form.pages)) {
+          if (form.pages.length && form.pages[0]?.fields) {
+            setPages(ensureFieldNames(form.pages));
+            setSettings(form.settings || {});
+          } else {
+            setPages(
+              form.pages.map((fields, i) => ({
+                pageName: `Page ${i + 1}`,
+                fields: fields.map((field, idx) => ({
+                  ...field,
+                  name:
+                    typeof field.label === "string" &&
+                    field.label.trim().length > 0
+                      ? field.label.trim().replace(/\s+/g, "_").toLowerCase()
+                      : `field_${idx + 1}`,
+                })),
+              }))
+            );
+          }
+          setCurrentPage(0);
+        }
+      } catch (e) {
+        // If server fetch fails, show empty form
+        setName("");
+        setPages([{ pageName: "Page 1", fields: [] }]);
+        setSettings({});
+      }
+    })();
+  }, [id]);
+
+  if (!id) {
+    const PREMADE_TEMPLATES = [
+      {
+        name: "License Application",
+        fields: [
+          [
+            { type: "text", label: "Full Name", props: { required: true } },
+            { type: "date", label: "Date of Birth", props: { required: true } },
+            {
+              type: "dropdown",
+              label: "License Type",
+              props: { required: true },
+              options: ["A", "B", "C"],
+            },
+          ],
+        ],
+      },
+      {
+        name: "Payment Request",
+        fields: [
+          [
+            { type: "number", label: "Amount", props: { required: true } },
+            {
+              type: "dropdown",
+              label: "Payment Method",
+              props: { required: true },
+              options: ["Credit Card", "Bank Transfer"],
+            },
+          ],
+        ],
+      },
+    ];
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          className="block text-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 mb-3"
+          onClick={() => handleNewForm()}
+          type="button"
+        >
+          New Form
+        </button>
+        {PREMADE_TEMPLATES.map((tpl) => (
+          <button
+            key={tpl.name}
+            className="rounded bg-gray-200 px-2 py-1 text-sm hover:bg-gray-300"
+            onClick={() => handleNewForm(tpl)}
+            type="button"
+          >
+            {tpl.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   const gridCols =
     leftCollapsed && rightCollapsed
       ? "grid-cols-[0_1fr_0]"
@@ -186,141 +288,29 @@ export default function FormBuilder() {
     } catch {}
   }
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      function ensureFieldNames(pages) {
-        return pages.map((page, i) => ({
-          ...page,
-          fields: (page.fields || []).map((field, idx) => ({
-            ...field,
-            name: field.name || `field_${idx + 1}`,
-          })),
-        }));
-      }
-      try {
-        const res = await axios.get(`/api/forms/${id}`);
-        const form = res.data;
-        setName(form.name || "");
-        if (Array.isArray(form.pages)) {
-          if (form.pages.length && form.pages[0]?.fields) {
-            setPages(ensureFieldNames(form.pages));
-            setSettings(form.settings || {});
-          } else {
-            setPages(
-              form.pages.map((fields, i) => ({
-                pageName: `Page ${i + 1}`,
-                fields: fields.map((field, idx) => ({
-                  ...field,
-                  name:
-                    typeof field.label === "string" &&
-                    field.label.trim().length > 0
-                      ? field.label.trim().replace(/\s+/g, "_").toLowerCase()
-                      : `field_${idx + 1}`,
-                })),
-              }))
-            );
-          }
-          setCurrentPage(0);
-        }
-      } catch (e) {
-        // If server fetch fails, show empty form
-        setName("");
-        setPages([{ pageName: "Page 1", fields: [] }]);
-        setSettings({});
-      }
-    })();
-  }, [id]);
-
-  // No draft hydration needed
-
-  // No preview hydration needed
-
-  // No backend preview seeding needed
-
-  // No preview hydration needed
-  // No draft hydration needed
-  // No backend preview seeding needed
-
-  if (!id) {
-    const PREMADE_TEMPLATES = [
-      {
-        name: "License Application",
-        fields: [
-          [
-            { type: "text", label: "Full Name", props: { required: true } },
-            { type: "date", label: "Date of Birth", props: { required: true } },
-            {
-              type: "dropdown",
-              label: "License Type",
-              props: { required: true },
-              options: ["A", "B", "C"],
-            },
-          ],
-        ],
-      },
-      {
-        name: "Payment Request",
-        fields: [
-          [
-            { type: "number", label: "Amount", props: { required: true } },
-            {
-              type: "dropdown",
-              label: "Payment Method",
-              props: { required: true },
-              options: ["Credit Card", "Bank Transfer"],
-            },
-          ],
-        ],
-      },
-    ];
-
-    async function handleNewForm(tpl) {
-      // Use tpl.fields for premade templates, not tpl.pages
-      const isPremade = tpl && tpl.fields;
-      const pages = isPremade
-        ? Array.isArray(tpl.fields) && tpl.fields[0]?.fields
-          ? tpl.fields
-          : tpl.fields.map((fields, i) => ({
-              pageName: `Page ${i + 1}`,
-              fields,
-            }))
-        : tpl?.pages || [{ pageName: "Page 1", fields: [] }];
-      try {
-        const res = await axios.post("/api/forms", {
-          name: tpl?.name || "",
-          pages,
-          settings: {},
+  async function handleNewForm(tpl) {
+    // Use tpl.fields for premade templates, not tpl.pages
+    const isPremade = tpl && tpl.fields;
+    const pages = isPremade
+      ? Array.isArray(tpl.fields) && tpl.fields[0]?.fields
+        ? tpl.fields
+        : tpl.fields.map((fields, i) => ({
+            pageName: `Page ${i + 1}`,
+            fields,
+          }))
+      : tpl?.pages || [{ pageName: "Page 1", fields: [] }];
+    try {
+      const res = await axios.post("/api/forms", {
+        name: tpl?.name || "Untitled Form",
+        pages,
+        settings: {},
+      });
+      if (res.data?.id) {
+        navigate(`/builder/${res.data.id}`, {
+          state: tpl ? { template: { ...tpl, pages } } : undefined,
         });
-        if (res.data?.id) {
-          navigate(`/builder/${res.data.id}`, {
-            state: tpl ? { template: { ...tpl, pages } } : undefined,
-          });
-        }
-      } catch {}
-    }
-
-    return (
-      <div className="flex flex-wrap gap-2">
-        <button
-          className="block text-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 mb-3"
-          onClick={() => handleNewForm()}
-          type="button"
-        >
-          New Form
-        </button>
-        {PREMADE_TEMPLATES.map((tpl) => (
-          <button
-            key={tpl.name}
-            className="rounded bg-gray-200 px-2 py-1 text-sm hover:bg-gray-300"
-            onClick={() => handleNewForm(tpl)}
-            type="button"
-          >
-            {tpl.name}
-          </button>
-        ))}
-      </div>
-    );
+      }
+    } catch {}
   }
 
   return (
@@ -371,6 +361,11 @@ export default function FormBuilder() {
           </section>
           <section className="max-w-xl mx-auto mt-4">
             <div>
+              {!hasAnyField && (
+                <p className="text-sm text-red-600 mt-3 text-center">
+                  Add at least one field to save.
+                </p>
+              )}
               {pages[currentPage].fields.length === 0 ? (
                 <p className="text-center text-gray-500">
                   No fields yet. Use the Add Field button to get started.
@@ -387,14 +382,9 @@ export default function FormBuilder() {
                   ))}
                 </div>
               )}
-              {!hasAnyField && (
-                <p className="text-sm text-red-600 mt-3">
-                  Add at least one field to save.
-                </p>
-              )}
             </div>
           </section>
-          <section className="flex items-center justify-between bg-white rounded-lg p-3">
+          <section className="sticky bottom-0 flex items-center justify-between bg-white rounded-lg p-3">
             <button
               className="px-3 py-2 rounded bg-gray-200"
               onClick={() => {
@@ -431,7 +421,6 @@ export default function FormBuilder() {
               >
                 Save
               </button>
-              {/* Publish button removed: no draftIdParam logic */}
             </div>
           </section>
         </div>
