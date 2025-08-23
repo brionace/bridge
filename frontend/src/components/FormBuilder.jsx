@@ -1,119 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import FormBuilderLeftPanel from "./FormBuilderLeftPanel";
+import FormBuilderRightPanel from "./FormBuilderRightPanel";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { cssStringToObject, extractAppliedStyleObjects } from "../utils/styles";
 import { syncFormToBrowserStorage } from "../utils/formSync";
 import axios, { supabase } from "../utils/axios";
-import { FIELD_TYPES } from "../utils/constants";
-import StyleToolbox from "../components/StyleToolbox";
+import StyleToolbox from "./StyleToolbox";
 import { Wand2 } from "lucide-react";
-import { STYLE_OPTIONS } from "../components/StyleToolbox";
-
-// Helper to convert CSS string to style object
-function cssStringToObject(cssString) {
-  if (!cssString || typeof cssString !== "string") return {};
-  return cssString.split(";").reduce((acc, rule) => {
-    const [prop, value] = rule.split(":").map((s) => s && s.trim());
-    if (prop && value) {
-      // Convert kebab-case to camelCase
-      const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      acc[camelProp] = value;
-    }
-    return acc;
-  }, {});
-}
-
-// Utility to extract applied style objects from style string
-function extractAppliedStyleObjects(styleStr) {
-  if (!styleStr) return [];
-  return STYLE_OPTIONS.filter((opt) => styleStr.includes(opt.css));
-}
-
-function FieldEditor({ field, onChange, onDelete }) {
-  const [optionInput, setOptionInput] = useState("");
-  function handleChange(key, value) {
-    if (key === "required") {
-      // Ensure required is saved in props
-      onChange({
-        ...field,
-        props: { ...field.props, required: value },
-      });
-    } else {
-      onChange({ ...field, [key]: value });
-    }
-  }
-  function addOption() {
-    if (optionInput.trim()) {
-      const newOptions = [...(field.options || []), optionInput.trim()];
-      handleChange("options", newOptions);
-      setOptionInput("");
-    }
-  }
-  return (
-    <div className="flex gap-2 w-full bg-amber-100 p-4 rounded-lg">
-      <div className="flex flex-col gap-2 w-full">
-        <select
-          value={field.type || "text"}
-          onChange={(e) => handleChange("type", e.target.value)}
-        >
-          {FIELD_TYPES.map((ft) => (
-            <option key={ft.value} value={ft.value}>
-              {ft.label}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder="Field Label"
-          value={field.label || ""}
-          onChange={(e) => handleChange("label", e.target.value)}
-        />
-        <div className="flex items-center mt-4 gap-2">
-          <label>
-            <input
-              type="checkbox"
-              checked={field.props?.required || false}
-              onChange={(e) => handleChange("required", e.target.checked)}
-            />{" "}
-            Required
-          </label>
-          <input
-            className="border p-2 rounded"
-            placeholder="Validation (e.g. regex)"
-            value={field.validation || ""}
-            onChange={(e) => handleChange("validation", e.target.value)}
-          />
-        </div>
-        {(field.type === "dropdown" || field.type === "radio") && (
-          <div className="mt-4">
-            <div className="flex gap-2 mb-2">
-              <input
-                className="border p-2 rounded flex-1"
-                placeholder="Option label"
-                value={optionInput}
-                onChange={(e) => setOptionInput(e.target.value)}
-              />
-              <button
-                type="button"
-                className="bg-blue-600 text-white px-2 rounded"
-                onClick={addOption}
-              >
-                Add Option
-              </button>
-            </div>
-            <ul>
-              {(field.options || []).map((opt, i) => (
-                <li key={i}>{opt}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-      <div>
-        <button type="button" onClick={onDelete}>
-          &times;
-        </button>
-      </div>
-    </div>
-  );
-}
+import FieldEditor from "./FieldEditor";
 
 export default function FormBuilder() {
   const navigate = useNavigate();
@@ -159,6 +53,7 @@ export default function FormBuilder() {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showStyleToolbox, setShowStyleToolbox] = useState(null);
+  const [settings, setSettings] = useState({});
 
   // Persist collapse state across sessions
   useEffect(() => {
@@ -251,7 +146,7 @@ export default function FormBuilder() {
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
-    const payload = { name, pages };
+    const payload = { name, pages, settings };
 
     // Determine effective id for this save
     let savedFormId = null;
@@ -386,6 +281,7 @@ export default function FormBuilder() {
         if (Array.isArray(form.pages)) {
           if (form.pages.length && form.pages[0]?.fields) {
             setPages(ensureFieldNames(form.pages));
+            setSettings(form.settings || {});
           } else {
             setPages(
               form.pages.map((fields, i) => ({
@@ -413,6 +309,7 @@ export default function FormBuilder() {
             if (Array.isArray(doc.pages)) {
               if (doc.pages.length && doc.pages[0]?.fields) {
                 setPages(ensureFieldNames(doc.pages));
+                setSettings(doc.settings || {});
               } else {
                 setPages(
                   doc.pages.map((fields, i) => ({
@@ -672,68 +569,71 @@ export default function FormBuilder() {
   return (
     <div className="grid grid-rows-[auto_1fr_auto] h-screen bg-slate-50">
       <main className={`grid ${gridCols} gap-4 h-screen`}>
-        {/* Left */}
-        <div className="border rounded p-3 overflow-auto">
-          {leftCollapsed && (
-            <button
-              className="px-2 py-1 rounded bg-gray-100 border"
-              onClick={() => setLeftCollapsed(false)}
-            >
-              Show Pages
-            </button>
-          )}
-          {!leftCollapsed && (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold">Pages</h4>
-                <button
-                  className="text-sm text-gray-600"
-                  onClick={() => setLeftCollapsed(true)}
-                >
-                  Hide
-                </button>
-              </div>
-              <button
-                className="bg-green-600 text-white px-2 py-1 rounded"
-                onClick={addPage}
-              >
-                Add Page
-              </button>
-              <div className="flex flex-col gap-2">
-                {pages.map((page, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <button
-                      className={`px-2 py-1 rounded text-left ${
-                        i === currentPage
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100"
-                      }`}
-                      onClick={() => setCurrentPage(i)}
-                    >
-                      {page.pageName || `Page ${i + 1}`}
-                    </button>
-                    {i !== 0 && currentPage === i && (
-                      <div>
-                        <button
-                          className="text-red-600 px-2 py-1 rounded border"
-                          onClick={() => removePage(currentPage)}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <FormBuilderLeftPanel
+          leftCollapsed={leftCollapsed}
+          setLeftCollapsed={setLeftCollapsed}
+          pages={pages}
+          setPages={setPages}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          addPage={addPage}
+          removePage={removePage}
+          extractAppliedStyleObjects={extractAppliedStyleObjects}
+          setShowStyleToolbox={setShowStyleToolbox}
+        />
         {/* Center */}
         <div className="border rounded p-3 overflow-auto">
-          <section className="sticky top-0 flex items-center justify-between bg-white rounded-lg p-3">
+          <section className="bg-white rounded-lg p-3 overflow-auto">
+            <div
+              className="flex justify-center items-center max-w-xl mx-auto"
+              style={cssStringToObject(settings.style)}
+            >
+              {pages.map((page) => (
+                <div className="form" style={cssStringToObject(page.style)}>
+                  {page.fields.map((field, idx) => (
+                    <div
+                      key={idx}
+                      className="form-field"
+                      style={cssStringToObject(field.style)}
+                    >
+                      <div className="field-label text-xs w-6 h-3 mb-1 bg-gray-500">
+                        {/* {field.label} */}
+                      </div>
+                      <div className="field-input w-12 h-6 bg-gray-500">
+                        {/* {field.input} */}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="max-w-xl mx-auto mt-4">
+            <div>
+              {pages[currentPage].fields.length === 0 ? (
+                <p className="text-center text-gray-500">
+                  No fields yet. Use the Add Field button to get started.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {pages[currentPage].fields.map((field, idx) => (
+                    <FieldEditor
+                      key={idx}
+                      field={field}
+                      onChange={(f) => updateField(idx, f)}
+                      onDelete={() => deleteField(idx)}
+                    />
+                  ))}
+                </div>
+              )}
+              {!hasAnyField && (
+                <p className="text-sm text-red-600 mt-3">
+                  Add at least one field to save.
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="flex items-center justify-between bg-white rounded-lg p-3">
             <button
               className="px-3 py-2 rounded bg-gray-200"
               onClick={() => {
@@ -742,6 +642,15 @@ export default function FormBuilder() {
               }}
             >
               Back to Dashboard
+            </button>
+            <button
+              className="px-3 py-2 rounded bg-gray-200"
+              onClick={() => {
+                // Remove current draft/form from storage and go back to dashboard
+                navigate("/preview/" + id);
+              }}
+            >
+              Preview
             </button>
             <div className="flex items-center gap-3">
               {/* {!canSave && (
@@ -777,210 +686,35 @@ export default function FormBuilder() {
               )}
             </div>
           </section>
-          <div className="max-w-xl mx-auto mt-4">
-            {/* Page name and style editor for current page */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Page Name
-              </label>
-              <input
-                className="border p-2 rounded w-full mb-2"
-                type="text"
-                value={pages[currentPage].pageName || ""}
-                onChange={(e) => {
-                  const newName = e.target.value;
-                  setPages((pages) =>
-                    pages.map((page, idx) =>
-                      idx === currentPage
-                        ? { ...page, pageName: newName }
-                        : page
-                    )
-                  );
-                }}
-                placeholder={`Page ${currentPage + 1}`}
-              />
-              {/* <label className="block text-sm font-medium text-gray-700 mb-1">
-                Page Style (CSS string)
-              </label>
-              <textarea
-                className="border p-2 rounded w-full"
-                rows={3}
-                value={pages[currentPage].style || ""}
-                onChange={(e) => {
-                  const cssString = e.target.value;
-                  setPages((pages) =>
-                    pages.map((page, idx) =>
-                      idx === currentPage ? { ...page, style: cssString } : page
-                    )
-                  );
-                }}
-                placeholder="e.g. background: #f9fafb; color: #333;"
-              /> */}
-              {extractAppliedStyleObjects(pages[currentPage].style).map(
-                (opt) => (
-                  <span
-                    key={opt.css}
-                    className="inline-flex items-center px-2 py-1 bg-gray-100 rounded border text-xs gap-1"
-                  >
-                    {opt.icon}
-                    <span>{opt.label}</span>
-                    <button
-                      className="ml-1 text-red-500 hover:text-red-700"
-                      type="button"
-                      onClick={() => {
-                        setPages((pages) =>
-                          pages.map((page, idx) =>
-                            idx === currentPage
-                              ? {
-                                  ...page,
-                                  style: (page.style || "")
-                                    .replace(opt.css, "")
-                                    .replace(/\s*;\s*;/g, ";")
-                                    .trim(),
-                                }
-                              : page
-                          )
-                        );
-                      }}
-                    >
-                      &times;
-                    </button>
-                  </span>
-                )
-              )}
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Page Style (CSS string)
-                <button
-                  className="ml-2 px-2 py-1 rounded bg-indigo-100 border inline-flex items-center gap-1"
-                  type="button"
-                  onClick={() =>
-                    setShowStyleToolbox({ type: "page", index: currentPage })
-                  }
-                >
-                  <Wand2 size={16} /> Style Toolbox
-                </button>
-              </label>
-            </div>
-            <div style={cssStringToObject(pages[currentPage].style)}>
-              {pages[currentPage].fields.length === 0 ? (
-                <p className="text-center text-gray-500">
-                  No fields yet. Use the Add Field button to get started.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {pages[currentPage].fields.map((field, idx) => (
-                    <FieldEditor
-                      key={idx}
-                      field={field}
-                      onChange={(f) => updateField(idx, f)}
-                      onDelete={() => deleteField(idx)}
-                    />
-                  ))}
-                </div>
-              )}
-              {!hasAnyField && (
-                <p className="text-sm text-red-600 mt-3">
-                  Add at least one field to save.
-                </p>
-              )}
-            </div>
-          </div>
         </div>
         {/* Right */}
-        <div className="border rounded p-3 overflow-auto">
-          {rightCollapsed && (
-            <button
-              className="px-2 py-1 rounded bg-gray-100 border"
-              onClick={() => setRightCollapsed(false)}
-            >
-              Show Details
-            </button>
-          )}
-          {!rightCollapsed && (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold">Form Details</h4>
-                <button
-                  className="text-sm text-gray-600"
-                  onClick={() => setRightCollapsed(true)}
-                >
-                  Hide
-                </button>
-              </div>
-              <input
-                className="border p-2 rounded w-full mb-3"
-                placeholder="Form Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              {name.trim().length === 0 && (
-                <p className="text-sm text-red-600 mb-3">
-                  Form name is required.
-                </p>
-              )}
-              <button className="bg-blue-600 text-white" onClick={addField}>
-                Add Field
-              </button>
-              <button
-                className="text-red-600 hover:underline"
-                onClick={() => handleDeleteForm(id)}
-              >
-                Delete
-              </button>
-              {/* <hr className="my-4" />
-              {!previewJson ? (
-                <p className="text-sm text-slate-600">
-                  Save to generate a preview.
-                </p>
-              ) : (
-                <>
-                  <div className="flex gap-2 items-center justify-between mb-2">
-                    <button
-                      className="px-2 py-1 text-sm rounded border"
-                      onClick={() => {
-                        refreshPreview();
-                        setShowPreview(!showPreview);
-                      }}
-                    >
-                      Preview JSON
-                      {previewJson && (
-                        <>
-                          {" "}
-                          <span className="text-xs text-slate-500">
-                            {previewSource === "cloud"
-                              ? "from Supabase"
-                              : previewSource === "api"
-                              ? "from API"
-                              : "from session"}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                    <div className="flex gap-2 mb-2">
-                      <button
-                        className="px-2 py-1 text-sm rounded border"
-                        onClick={() =>
-                          navigator.clipboard.writeText(previewJson)
-                        }
-                      >
-                        Copy JSON
-                      </button>
-                    </div>
-                  </div>
-                  {showPreview && (
-                    <pre className="text-xs bg-slate-50 border rounded p-2 max-h-64 overflow-auto whitespace-pre-wrap">
-                      {previewJson}
-                    </pre>
-                  )}
-                </>
-              )} */}
-            </>
-          )}
-        </div>
+        <FormBuilderRightPanel
+          rightCollapsed={rightCollapsed}
+          setRightCollapsed={setRightCollapsed}
+          name={name}
+          setName={setName}
+          settings={settings}
+          setSettings={setSettings}
+          extractAppliedStyleObjects={extractAppliedStyleObjects}
+          setShowStyleToolbox={setShowStyleToolbox}
+          handleDeleteForm={handleDeleteForm}
+          id={id}
+          addField={addField}
+        />
       </main>
       {showStyleToolbox && (
         <StyleToolbox
           onInsert={(css) => {
+            if (showStyleToolbox.type === "form") {
+              setSettings((s) => ({
+                ...s,
+                style:
+                  (s.style ? s.style.trim() : "") +
+                  (s.style && !s.style.trim().endsWith(";") ? ";" : "") +
+                  " " +
+                  css,
+              }));
+            }
             if (showStyleToolbox.type === "page") {
               setPages((pages) =>
                 pages.map((page, idx) =>

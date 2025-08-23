@@ -33,6 +33,7 @@ app.post("/api/preview", async (req, res) => {
         userId: payload.userId || "anon",
         pages: payload.fields ?? [],
         published: false,
+        settings: payload.settings || null,
       };
       await prisma.form.upsert({
         where: { id: formId },
@@ -40,6 +41,7 @@ app.post("/api/preview", async (req, res) => {
           name: data.name,
           pages: data.pages,
           published: false,
+          settings: data.settings,
         },
         create: data,
       });
@@ -104,7 +106,7 @@ app.get("/api/forms", async (req, res) => {
 app.put("/api/forms/:id", async (req, res) => {
   const { default: prisma } = await import("./prismaClient.js");
   const id = String(req.params.id);
-  const { name, pages, published } = req.body;
+  const { name, pages, published, settings } = req.body;
   try {
     const updated = await prisma.form.update({
       where: { id },
@@ -112,6 +114,7 @@ app.put("/api/forms/:id", async (req, res) => {
         name,
         pages,
         published: typeof published === "boolean" ? published : undefined,
+        settings: settings || null,
       },
     });
     res.json(updated);

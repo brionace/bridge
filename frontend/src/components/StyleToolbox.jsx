@@ -13,11 +13,25 @@ export const STYLE_OPTIONS = [
     label: "Flex Row",
     icon: <Rows size={20} />,
     css: "display: flex; flex-direction: row;",
+    group: "flex-direction",
   },
   {
     label: "Flex Column",
     icon: <Columns size={20} />,
     css: "display: flex; flex-direction: column;",
+    group: "flex-direction",
+  },
+  {
+    label: "Align Start",
+    icon: <AlignHorizontalJustifyCenter size={20} />,
+    css: "align-items: flex-start;",
+    group: "align-items",
+  },
+  {
+    label: "Align End",
+    icon: <AlignHorizontalJustifyCenter size={20} />,
+    css: "align-items: flex-end;",
+    group: "align-items",
   },
   {
     label: "Center Vertically",
@@ -34,16 +48,38 @@ export const STYLE_OPTIONS = [
     icon: <Wand2 size={20} />,
     css: "box-shadow: 0 2px 8px #888;",
   },
-  // Add more styles here
+  {
+    label: "Rounded Corners",
+    icon: <Wand2 size={20} />,
+    css: "border-radius: 8px;",
+  },
+  {
+    label: "Text Shadow",
+    icon: <Wand2 size={20} />,
+    css: "text-shadow: 1px 1px 2px #000;",
+  },
 ];
 
 export default function StyleToolbox({ onInsert, onClose }) {
   const [selected, setSelected] = React.useState([]);
 
   function handleToggle(css) {
-    setSelected((prev) =>
-      prev.includes(css) ? prev.filter((s) => s !== css) : [...prev, css]
-    );
+    const option = STYLE_OPTIONS.find((opt) => opt.css === css);
+    if (!option) return;
+
+    setSelected((prev) => {
+      // Remove any selected style from the same group
+      const filtered = option.group
+        ? prev.filter((selCss) => {
+            const selOpt = STYLE_OPTIONS.find((opt) => opt.css === selCss);
+            return !selOpt || selOpt.group !== option.group;
+          })
+        : prev;
+      // Toggle selection
+      return filtered.includes(css)
+        ? filtered.filter((s) => s !== css)
+        : [...filtered, css];
+    });
   }
 
   function handleInsert() {

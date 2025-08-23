@@ -1,6 +1,7 @@
 import React from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
+import { cssStringToObject } from "../../utils/styles";
 
 /**
  * DynamicFormFormik renders a dynamic form using Formik and Yup.
@@ -12,7 +13,6 @@ import * as Yup from "yup";
 export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
   const fields = form.pages || [];
   const settings = form.settings || {};
-  console.log({ form });
   // Support grouped fields: fields is now array of groups
   // Each group: { label, fields: [...] }
   const allFields = Array.isArray(fields)
@@ -63,7 +63,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
     switch (field.type) {
       case "textarea":
         return (
-          <div key={idx} className={settings.fieldContainerClass || "mb-4"}>
+          <div key={idx} className={settings.fieldContainerClass}>
             <label htmlFor={field.name} className="block font-semibold mb-1">
               {label}
             </label>
@@ -80,7 +80,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
           <div
             key={idx}
             className={
-              settings.fieldContainerClass || "mb-4 flex items-center gap-2"
+              settings.fieldContainerClass || "flex items-center gap-2"
             }
           >
             <Field type="checkbox" {...commonProps} />
@@ -97,7 +97,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
       case "dropdown":
       case "select":
         return (
-          <div key={idx} className={settings.fieldContainerClass || "mb-4"}>
+          <div key={idx} className={settings.fieldContainerClass}>
             <label htmlFor={field.name} className="block font-semibold mb-1">
               {label}
             </label>
@@ -117,7 +117,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
         );
       case "radio":
         return (
-          <div key={idx} className={settings.fieldContainerClass || "mb-4"}>
+          <div key={idx} className={settings.fieldContainerClass}>
             <span className="block font-semibold mb-1">{label}</span>
             <div className="flex gap-4">
               {(field.options || []).map((opt, i) => (
@@ -166,7 +166,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
         );
       case "date":
         return (
-          <div key={idx} className={settings.fieldContainerClass || "mb-4"}>
+          <div key={idx} className={settings.fieldContainerClass}>
             <label htmlFor={field.name} className="block font-semibold mb-1">
               {label}
             </label>
@@ -178,10 +178,29 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
             />
           </div>
         );
-      default:
-        console.log(field);
+      case "button":
         return (
-          <div key={idx} className={settings.fieldContainerClass || "mb-4"}>
+          <div key={idx} className={settings.fieldContainerClass}>
+            <button type="button" {...commonProps}>
+              {field.label}
+            </button>
+          </div>
+        );
+      case "submit":
+        return (
+          <div key={idx} className={settings.fieldContainerClass}>
+            <button type="submit" {...commonProps} value={field.value} />
+          </div>
+        );
+      case "submit":
+        return (
+          <div key={idx} className={settings.fieldContainerClass}>
+            <button type="reset" {...commonProps} value={field.value} />
+          </div>
+        );
+      default:
+        return (
+          <div key={idx} className={settings.fieldContainerClass}>
             <label htmlFor={field.name} className="block font-semibold mb-1">
               {label}
             </label>
@@ -204,10 +223,17 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
       enableReinitialize
     >
       {(formik) => (
-        <Form className={settings.formClass || "space-y-4"}>
+        <Form
+          className={settings.formClass || "space-y-4"}
+          style={cssStringToObject(settings.style)}
+        >
           {Array.isArray(fields)
             ? fields.map((group, gIdx) => (
-                <div key={gIdx} className="mb-6 p-4 border rounded bg-slate-50">
+                <div
+                  key={gIdx}
+                  className="space-x-2"
+                  style={cssStringToObject(group.style)}
+                >
                   {group.label && (
                     <div className="font-bold text-lg mb-2">{group.label}</div>
                   )}

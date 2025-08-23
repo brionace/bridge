@@ -22,7 +22,8 @@ model Form {
   userId    String
   name      String
   pages     Json
+  settings  Json?
+  published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  published Boolean  @default(false)
 }

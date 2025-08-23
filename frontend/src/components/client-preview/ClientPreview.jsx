@@ -13,11 +13,13 @@ export default function ClientPreview({ form = {} }) {
       </header>
 
       {/* Skeleton Hero Section */}
-      <section className="relative flex items-center justify-center mb-8">
-        <DynamicFormFormik
-          form={form}
-          onSubmit={(values) => console.log(values)}
-        />
+      <section className="relative flex items-center justify-center mb-8 pt-8">
+        <div className="max-w-4xl bg-amber-50 p-6 rounded-2xl">
+          <DynamicFormFormik
+            form={form}
+            onSubmit={(values) => console.log(values)}
+          />
+        </div>
       </section>
       {/* <section className="relative h-72 sm:h-96 flex items-center justify-center mb-8">
         <div className="absolute inset-0 bg-gradient-to-b from-blue-900/80 to-blue-200 opacity-80" />
