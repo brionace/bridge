@@ -27,6 +27,15 @@ export default function FormBuilder() {
         fields,
       }));
     }
+    // If template.fields exists (premade template), use that
+    if (template?.fields) {
+      if (Array.isArray(template.fields) && template.fields[0]?.fields)
+        return template.fields;
+      return template.fields.map((fields, i) => ({
+        pageName: `Page ${i + 1}`,
+        fields,
+      }));
+    }
     return [{ pageName: "Page 1", fields: [] }];
   }, [template]);
   const [pages, setPages] = useState(initialPages);
@@ -528,18 +537,28 @@ export default function FormBuilder() {
 
     async function handleNewForm(tpl) {
       const id = createDraftId();
-      seedDraftInSession(id, tpl || null);
+      // Use tpl.fields for premade templates, not tpl.pages
+      const isPremade = tpl && tpl.fields;
+      const pages = isPremade
+        ? Array.isArray(tpl.fields) && tpl.fields[0]?.fields
+          ? tpl.fields
+          : tpl.fields.map((fields, i) => ({
+              pageName: `Page ${i + 1}`,
+              fields,
+            }))
+        : tpl?.pages || [{ pageName: "Page 1", fields: [] }];
+      seedDraftInSession(id, { ...tpl, pages });
       try {
         const res = await axios.post("/api/forms", {
           id,
           name: tpl?.name || "",
-          pages: tpl?.pages || [{ pageName: "Page 1", fields: [] }],
+          pages,
           settings: {},
         });
         syncFormToBrowserStorage(res.data);
       } catch {}
       navigate(`?draftId=${encodeURIComponent(id)}`, {
-        state: tpl ? { template: tpl } : undefined,
+        state: tpl ? { template: { ...tpl, pages } } : undefined,
       });
     }
 
@@ -641,7 +660,7 @@ export default function FormBuilder() {
                 navigate("/dashboard");
               }}
             >
-              Back to Dashboard
+              Dashboard
             </button>
             <button
               className="px-3 py-2 rounded bg-gray-200"
