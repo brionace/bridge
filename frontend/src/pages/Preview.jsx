@@ -11,7 +11,7 @@ export default function Preview() {
   useEffect(() => {
     if (!formId) return;
     setLoading(true);
-    fetch(`/api/forms/${formId}/preview`)
+    fetch(`/api/forms/${formId}`)
       .then((res) => {
         if (!res.ok) throw new Error("Form not found");
         return res.json();

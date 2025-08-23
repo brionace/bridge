@@ -1,67 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../utils/axios";
-import { syncFormToBrowserStorage } from "../utils/formSync";
+// import removed: syncFormToBrowserStorage no longer exists
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [drafts, setDrafts] = useState([]);
-
-  function loadDraftsFromSession() {
-    try {
-      const rawIndex = sessionStorage.getItem("form:draftIndex");
-      let ids = rawIndex ? JSON.parse(rawIndex) : [];
-      let items = [];
-      if (Array.isArray(ids) && ids.length > 0) {
-        items = ids
-          .map((id) => {
-            const rawDoc = sessionStorage.getItem(`form:preview:${id}`);
-            if (!rawDoc) return null;
-            try {
-              return JSON.parse(rawDoc);
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean);
-      } else {
-        // Fallback: scan sessionStorage for any form:preview:* entries
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key && key.startsWith("form:preview:")) {
-            const rawDoc = sessionStorage.getItem(key);
-            if (!rawDoc) continue;
-            try {
-              const obj = JSON.parse(rawDoc);
-              items.push(obj);
-            } catch {}
-          }
-        }
-      }
-      // Sort newest first by updatedAt if present
-      items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-      setDrafts(items);
-      // setForms((prev) => [...items, ...prev]);
-    } catch {
-      setDrafts([]);
-    }
-  }
 
   useEffect(() => {
     async function fetchServices() {
       setLoading(true);
-      // Preload local drafts so user sees them quickly
-      loadDraftsFromSession();
       try {
         const res = await axios.get("/api/forms");
         setForms(res.data);
-        // Keep local drafts visible even if API succeeds
       } catch {
         setForms([]);
-        // Re-read drafts in case another tab updated them
-        loadDraftsFromSession();
       }
       setLoading(false);
     }
@@ -76,7 +30,6 @@ export default function Dashboard() {
         settings: service.settings || {},
       };
       const res = await axios.post("/api/forms", payload);
-      syncFormToBrowserStorage(res.data);
       setForms((prev) => [res.data, ...prev]);
     } catch {}
   }

@@ -12,6 +12,24 @@ app.use(corsMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// /*
+// create a /api/forms to get drafts from the database
+app.get("/api/forms", async (req, res) => {
+  try {
+    const { default: prisma } = await import("./prismaClient.js");
+    const forms = await prisma.form.findMany({
+      where: { published: false },
+    });
+    res.json(forms);
+  } catch (e) {
+    console.error("[forms] fetch failed", {
+      error: e?.message,
+      stack: e?.stack,
+    });
+    res.status(500).json({ error: "forms_fetch_failed" });
+  }
+});
+
 // Simple in-memory fallback store for previews; not for production use
 const previewByFormId = new Map();
 
@@ -63,7 +81,7 @@ app.post("/api/preview", async (req, res) => {
 });
 
 // Public: fetch preview by id (DB first, then memory)
-app.get("/api/forms/:id/preview", async (req, res) => {
+app.get("/api/forms/:id", async (req, res) => {
   const id = String(req.params.id);
   try {
     const { default: prisma } = await import("./prismaClient.js");
@@ -85,20 +103,25 @@ app.get("/api/forms/:id/preview", async (req, res) => {
   return res.status(404).json({ error: "preview_not_found" });
 });
 
-// create a /api/forms to get drafts from the database
-app.get("/api/forms", async (req, res) => {
+// Create a new form
+app.post("/api/forms", async (req, res) => {
+  const { default: prisma } = await import("./prismaClient.js");
+  const { name, pages, published, settings } = req.body;
+  const userId = req.user?.id || "anon";
   try {
-    const { default: prisma } = await import("./prismaClient.js");
-    const forms = await prisma.form.findMany({
-      where: { published: false },
+    const created = await prisma.form.create({
+      data: {
+        name,
+        pages,
+        published: typeof published === "boolean" ? published : false,
+        settings: settings || null,
+        userId,
+      },
     });
-    res.json(forms);
+    res.json(created);
   } catch (e) {
-    console.error("[forms] fetch failed", {
-      error: e?.message,
-      stack: e?.stack,
-    });
-    res.status(500).json({ error: "forms_fetch_failed" });
+    console.error("[form:create]", e);
+    res.status(500).json({ error: "form_create_failed" });
   }
 });
 
@@ -123,9 +146,10 @@ app.put("/api/forms/:id", async (req, res) => {
     res.status(404).json({ error: "form_not_found" });
   }
 });
+// */
 
 // Mount the rest of /api (may include auth)
-app.use("/api", formRoutes);
+// app.use("/api", formRoutes);
 
 // Routes (may include auth). Keep after public preview endpoints so they don't get blocked.
 // app.use("/api", formRoutes);

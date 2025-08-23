@@ -3,7 +3,7 @@ import FormBuilderLeftPanel from "./FormBuilderLeftPanel";
 import FormBuilderRightPanel from "./FormBuilderRightPanel";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { cssStringToObject, extractAppliedStyleObjects } from "../utils/styles";
-import { syncFormToBrowserStorage } from "../utils/formSync";
+// import removed: syncFormToBrowserStorage no longer exists
 import axios, { supabase } from "../utils/axios";
 import StyleToolbox from "./StyleToolbox";
 import { Wand2 } from "lucide-react";
@@ -13,8 +13,6 @@ export default function FormBuilder() {
   const navigate = useNavigate();
   const { state, search } = useLocation();
   const { id } = useParams();
-  const params = useMemo(() => new URLSearchParams(search), [search]);
-  const draftIdParam = params.get("draftId");
   const template = state?.template || null;
 
   const [name, setName] = useState(template?.name || "");
@@ -57,10 +55,7 @@ export default function FormBuilder() {
         .filter(Boolean)
         .join(" and ")}`
     : "";
-  const [previewJson, setPreviewJson] = useState("");
-  const [previewSource, setPreviewSource] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [showStyleToolbox, setShowStyleToolbox] = useState(null);
   const [settings, setSettings] = useState({});
 
@@ -156,118 +151,38 @@ export default function FormBuilder() {
     if (!canSave || saving) return;
     setSaving(true);
     const payload = { name, pages, settings };
-
-    // Determine effective id for this save
-    let savedFormId = null;
-    let effectiveId = id || draftIdParam;
-
-    // If editing a saved form, update it
-    if (id) {
-      try {
-        const res = await axios.put(`/api/forms/${id}`, payload);
-        savedFormId = res.data?.id || id;
-        effectiveId = savedFormId;
-        syncFormToBrowserStorage(res.data);
-      } catch (e) {
-        // swallow backend errors so we can still show local preview
-        console.log(e);
+    try {
+      let res;
+      if (id) {
+        res = await axios.put(`/api/forms/${id}`, payload);
+      } else {
+        res = await axios.post(`/api/forms`, payload);
       }
-    } else if (draftIdParam) {
-      // Always seed preview for drafts
-      try {
-        let userId = null;
-        try {
-          const s = await supabase.auth.getSession();
-          userId = s?.data?.session?.user?.id || null;
-        } catch {}
-        const res = await axios.post("/api/preview", {
-          userId,
-          id: draftIdParam,
-          ...payload,
-        });
-        if (res.data) syncFormToBrowserStorage(res.data);
-      } catch (e) {
-        console.log(e);
+      // Optionally, redirect to canonical URL if new form
+      if (res.data?.id && res.data?.id !== id) {
+        navigate(`/builder/${res.data.id}`, { replace: true });
       }
-    } else {
-      // Creating a new form (non-draft)
-      try {
-        const res = await axios.post("/api/forms", payload);
-        savedFormId = res.data?.id || null;
-        effectiveId = savedFormId;
-        syncFormToBrowserStorage(res.data);
-      } catch (e) {
-        // swallow backend errors so we can still show local preview
-      }
+    } catch (e) {
+      console.log(e);
     }
-
-    // Always save to sessionStorage (keyed by id) and show preview
-    try {
-      const localDoc = { id: effectiveId, updatedAt: Date.now(), ...payload };
-      sessionStorage.setItem(
-        `form:preview:${effectiveId}`,
-        JSON.stringify(localDoc)
-      );
-      sessionStorage.setItem("form:lastSavedId", effectiveId);
-      // Maintain a simple drafts index for dashboard fallback (deduped, newest first)
-      try {
-        const raw = sessionStorage.getItem("form:draftIndex");
-        let arr = raw ? JSON.parse(raw) : [];
-        arr = [effectiveId, ...arr.filter((x) => x !== effectiveId)];
-        sessionStorage.setItem(
-          "form:draftIndex",
-          JSON.stringify(arr.slice(0, 100))
-        );
-      } catch {}
-      setPreviewJson(JSON.stringify(localDoc, null, 2));
-      setPreviewSource("local");
-    } catch {}
-
-    // If a new form was created, move to the canonical URL with its id
-    try {
-      if (savedFormId && savedFormId !== id) {
-        // Clean up draft storage if we navigated from a draft
-        if (draftIdParam) {
-          try {
-            sessionStorage.removeItem(`form:preview:${draftIdParam}`);
-            const raw = sessionStorage.getItem("form:draftIndex");
-            if (raw) {
-              const arr = JSON.parse(raw).filter((x) => x !== draftIdParam);
-              sessionStorage.setItem("form:draftIndex", JSON.stringify(arr));
-            }
-          } catch {}
-        }
-        navigate(`/builder/${savedFormId}`, { replace: true });
-      }
-    } catch {}
     setSaving(false);
   }
   async function handlePublish() {
-    if (!draftIdParam) return;
+    // Just update published status in DB
+    if (!id) return;
     try {
       const payload = { name, pages, published: true };
-      const res = await axios.put(`/api/forms/${draftIdParam}`, payload);
-      // Remove from browser storage
-      sessionStorage.removeItem(`form:preview:${draftIdParam}`);
-      const raw = sessionStorage.getItem("form:draftIndex");
-      let arr = raw ? JSON.parse(raw) : [];
-      arr = arr.filter((x) => x !== draftIdParam);
-      sessionStorage.setItem("form:draftIndex", JSON.stringify(arr));
-      // Redirect to live builder
-      navigate(`/builder/${draftIdParam}`);
+      await axios.put(`/api/forms/${id}`, payload);
+      navigate(`/builder/${id}`);
     } catch (err) {
-      alert("Failed to publish draft.");
+      alert("Failed to publish form.");
     }
   }
   async function handleDeleteForm(id) {
     try {
       await axios.delete(`/api/forms/${id}`);
-      window.sessionStorage.removeItem(`form:preview:${id}`);
-      let raw = window.sessionStorage.getItem("form:draftIndex");
-      let arr = raw ? JSON.parse(raw) : [];
-      arr = arr.filter((x) => x !== id);
-      window.sessionStorage.setItem("form:draftIndex", JSON.stringify(arr));
-      setForms(forms.filter((s) => s.id !== id));
+      // Remove from local state if needed
+      // setForms(forms.filter((s) => s.id !== id));
     } catch {}
   }
 
@@ -309,170 +224,25 @@ export default function FormBuilder() {
           setCurrentPage(0);
         }
       } catch (e) {
-        // If server fetch fails, try to hydrate from local preview by id
-        try {
-          const raw = sessionStorage.getItem(`form:preview:${id}`);
-          if (raw) {
-            const doc = JSON.parse(raw);
-            setName(doc.name || "");
-            if (Array.isArray(doc.pages)) {
-              if (doc.pages.length && doc.pages[0]?.fields) {
-                setPages(ensureFieldNames(doc.pages));
-                setSettings(doc.settings || {});
-              } else {
-                setPages(
-                  doc.pages.map((fields, i) => ({
-                    pageName: `Page ${i + 1}`,
-                    fields: fields.map((field, idx) => ({
-                      ...field,
-                      name:
-                        typeof field.label === "string" &&
-                        field.label.trim().length > 0
-                          ? field.label
-                              .trim()
-                              .replace(/\s+/g, "_")
-                              .toLowerCase()
-                          : `field_${idx + 1}`,
-                    })),
-                  }))
-                );
-              }
-              setCurrentPage(0);
-            }
-          }
-        } catch {}
+        // If server fetch fails, show empty form
+        setName("");
+        setPages([{ pageName: "Page 1", fields: [] }]);
+        setSettings({});
       }
     })();
   }, [id]);
 
-  // Load draft content into editor when draftId is present (no server id)
-  useEffect(() => {
-    if (id || !draftIdParam) return;
-    function ensureFieldNames(pages) {
-      return pages.map((page, i) => ({
-        ...page,
-        fields: (page.fields || []).map((field, idx) => ({
-          ...field,
-          name:
-            typeof field.label === "string" && field.label.trim().length > 0
-              ? field.label.trim().replace(/\s+/g, "_").toLowerCase()
-              : field.name || `field_${idx + 1}`,
-        })),
-      }));
-    }
-    try {
-      const raw = sessionStorage.getItem(`form:preview:${draftIdParam}`);
-      if (!raw) return;
-      const doc = JSON.parse(raw);
-      setName(doc.name || "");
-      if (Array.isArray(doc.fields)) {
-        if (doc.fields.length && doc.fields[0]?.fields) {
-          setPages(ensureFieldNames(doc.fields));
-        } else {
-          setPages(
-            doc.fields.map((fields, i) => ({
-              pageName: `Page ${i + 1}`,
-              fields: fields.map((field, idx) => ({
-                ...field,
-                name: field.name || `field_${idx + 1}`,
-              })),
-            }))
-          );
-        }
-        setCurrentPage(0);
-      }
-    } catch {}
-  }, [id, draftIdParam]);
+  // No draft hydration needed
 
-  // Fetch preview by id so each form can be previewed individually
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (id) {
-          try {
-            const res = await axios.get(`/api/forms/${id}`);
-            if (!cancelled) {
-              setPreviewJson(JSON.stringify(res.data, null, 2));
-              setPreviewSource("api");
-              return;
-            }
-          } catch {
-            // If API not available or not found, fall back to session by id
-            const local = sessionStorage.getItem(`form:preview:${id}`);
-            if (local && !cancelled) {
-              setPreviewJson(local);
-              setPreviewSource("local");
-              return;
-            }
-          }
-        } else {
-          // No id: try draft from session as a convenience
-          const lastId = sessionStorage.getItem("form:lastSavedId");
-          const s = lastId
-            ? sessionStorage.getItem(`form:preview:${lastId}`)
-            : null;
-          if (s && !cancelled) {
-            setPreviewJson(s);
-            setPreviewSource("local");
-          }
-        }
-      } catch {
-        // silent; user can still Save to generate preview
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, draftIdParam]);
+  // No preview hydration needed
 
-  // Seed backend preview store on mount when working with a draft id
-  useEffect(() => {
-    (async () => {
-      if (!draftIdParam) return;
-      try {
-        const raw = sessionStorage.getItem(`form:preview:${draftIdParam}`);
-        const fallback = {
-          id: draftIdParam,
-          name,
-          pages,
-        };
-        const doc = raw ? JSON.parse(raw) : fallback;
-        await axios.post("/api/forms", {
-          id: draftIdParam,
-          name: doc.name || name,
-          pages: doc.pages || pages,
-        });
-      } catch {}
-    })();
-    // We only want this to run once per draft id
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftIdParam]);
+  // No backend preview seeding needed
 
-  async function refreshPreview() {
-    if (id) {
-      try {
-        const res = await axios.get(`/api/forms/${id}`);
-        setPreviewJson(JSON.stringify(res.data, null, 2));
-        setPreviewSource("api");
-        return;
-      } catch {
-        // fall through to local
-      }
-    }
-    if (draftIdParam) {
-      const raw = sessionStorage.getItem(`form:preview:${draftIdParam}`);
-      if (raw) {
-        setPreviewJson(raw);
-        setPreviewSource("local");
-        return;
-      }
-    }
-    setPreviewJson(JSON.stringify({ name, pages, published: false }, null, 2));
-    setPreviewSource("local");
-  }
+  // No preview hydration needed
+  // No draft hydration needed
+  // No backend preview seeding needed
 
-  if (!draftIdParam && !id) {
+  if (!id) {
     const PREMADE_TEMPLATES = [
       {
         name: "License Application",
@@ -505,38 +275,7 @@ export default function FormBuilder() {
       },
     ];
 
-    function createDraftId() {
-      return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    }
-
-    function seedDraftInSession(id, tpl) {
-      try {
-        const doc = {
-          id,
-          name: tpl?.name || "",
-          pages: tpl?.pages
-            ? Array.isArray(tpl.pages) && tpl.pages[0]?.fields
-              ? tpl.pages
-              : tpl.pages.map((fields, i) => ({
-                  pageName: `Page ${i + 1}`,
-                  fields,
-                }))
-            : [{ pageName: "Page 1", fields: [] }],
-          updatedAt: Date.now(),
-        };
-        sessionStorage.setItem(`form:preview:${id}`, JSON.stringify(doc));
-        const raw = sessionStorage.getItem("form:draftIndex");
-        let arr = raw ? JSON.parse(raw) : [];
-        arr = [id, ...arr.filter((x) => x !== id)];
-        sessionStorage.setItem(
-          "form:draftIndex",
-          JSON.stringify(arr.slice(0, 100))
-        );
-      } catch {}
-    }
-
     async function handleNewForm(tpl) {
-      const id = createDraftId();
       // Use tpl.fields for premade templates, not tpl.pages
       const isPremade = tpl && tpl.fields;
       const pages = isPremade
@@ -547,19 +286,18 @@ export default function FormBuilder() {
               fields,
             }))
         : tpl?.pages || [{ pageName: "Page 1", fields: [] }];
-      seedDraftInSession(id, { ...tpl, pages });
       try {
         const res = await axios.post("/api/forms", {
-          id,
           name: tpl?.name || "",
           pages,
           settings: {},
         });
-        syncFormToBrowserStorage(res.data);
+        if (res.data?.id) {
+          navigate(`/builder/${res.data.id}`, {
+            state: tpl ? { template: { ...tpl, pages } } : undefined,
+          });
+        }
       } catch {}
-      navigate(`?draftId=${encodeURIComponent(id)}`, {
-        state: tpl ? { template: { ...tpl, pages } } : undefined,
-      });
     }
 
     return (
@@ -607,11 +345,15 @@ export default function FormBuilder() {
               className="flex justify-center items-center max-w-xl mx-auto"
               style={cssStringToObject(settings.style)}
             >
-              {pages.map((page) => (
-                <div className="form" style={cssStringToObject(page.style)}>
+              {pages.map((page, pageIdx) => (
+                <div
+                  key={pageIdx}
+                  className="form"
+                  style={cssStringToObject(page.style)}
+                >
                   {page.fields.map((field, idx) => (
                     <div
-                      key={idx}
+                      key={field.name || idx}
                       className="form-field"
                       style={cssStringToObject(field.style)}
                     >
@@ -689,20 +431,7 @@ export default function FormBuilder() {
               >
                 Save
               </button>
-              {draftIdParam && (
-                <button
-                  className={`px-3 py-2 rounded text-white bg-green-600 hover:bg-green-700`}
-                  onClick={handlePublish}
-                  disabled={!canSave}
-                  title={
-                    !canSave
-                      ? "Complete all required fields before publishing."
-                      : ""
-                  }
-                >
-                  Publish
-                </button>
-              )}
+              {/* Publish button removed: no draftIdParam logic */}
             </div>
           </section>
         </div>

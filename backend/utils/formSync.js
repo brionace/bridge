@@ -56,29 +56,8 @@ async function getFormFromDB(id) {
   return await prisma.form.findUnique({ where: { id } });
 }
 
-/**
- * Sync form to browser storage (to be called from frontend via API response)
- * @param {Object} form
- * @param {Window} window
- */
-function syncFormToBrowserStorage(form, window) {
-  if (!form || !form.id || !window) return;
-  window.sessionStorage.setItem(
-    `form:preview:${form.id}`,
-    JSON.stringify(form)
-  );
-  let raw = window.sessionStorage.getItem("form:draftIndex");
-  let arr = raw ? JSON.parse(raw) : [];
-  arr = [form.id, ...arr.filter((x) => x !== form.id)];
-  window.sessionStorage.setItem(
-    "form:draftIndex",
-    JSON.stringify(arr.slice(0, 100))
-  );
-}
-
 module.exports = {
   saveFormToDB,
   deleteFormFromDB,
   getFormFromDB,
-  syncFormToBrowserStorage,
 };
