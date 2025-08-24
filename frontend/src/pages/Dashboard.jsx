@@ -51,36 +51,39 @@ export default function Dashboard() {
       </header>
       <main className="mx-auto max-w-7xl">
         <section className="space-y-3">
-          {forms?.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white border rounded p-3 flex justify-between items-center"
-            >
-              <span className="font-medium text-slate-900">{service.name}</span>
-              <div className="flex items-center gap-3">
-                <Link
-                  className="text-blue-600 hover:underline"
-                  to={`/builder/${service.id}`}
-                  state={{ formId: service.id, startPage: 0 }}
-                >
-                  Edit
-                </Link>
-                <Link
-                  className="text-blue-600 hover:underline"
-                  to={`/preview/${service.id}`}
-                  // state={{ formId: service.id, startPage: 0 }}
-                >
-                  Preview
-                </Link>
-                {/* <button
+          {Array.isArray(forms) &&
+            forms?.map((service) => (
+              <div
+                key={service.id}
+                className="bg-white border rounded p-3 flex justify-between items-center"
+              >
+                <span className="font-medium text-slate-900">
+                  {service.name}
+                </span>
+                <div className="flex items-center gap-3">
+                  <Link
+                    className="text-blue-600 hover:underline"
+                    to={`/builder/${service.id}`}
+                    state={{ formId: service.id, startPage: 0 }}
+                  >
+                    Edit
+                  </Link>
+                  <Link
+                    className="text-blue-600 hover:underline"
+                    to={`/preview/${service.id}`}
+                    // state={{ formId: service.id, startPage: 0 }}
+                  >
+                    Preview
+                  </Link>
+                  {/* <button
                     className="text-slate-700 hover:underline"
                     onClick={() => handleDuplicateService(service)}
                   >
                     Duplicate
                   </button> */}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </section>
       </main>
     </div>
