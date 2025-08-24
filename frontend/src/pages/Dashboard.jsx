@@ -51,7 +51,7 @@ export default function Dashboard() {
       </header>
       <main className="mx-auto max-w-7xl">
         <section className="space-y-3">
-          {forms.map((service) => (
+          {forms?.map((service) => (
             <div
               key={service.id}
               className="bg-white border rounded p-3 flex justify-between items-center"
