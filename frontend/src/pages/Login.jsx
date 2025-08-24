@@ -1,10 +1,24 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import { supabase } from "../utils/axios";
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+
+  useState(() => {
+    const x = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        setUser(user);
+      }
+    };
+    x();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,8 +30,13 @@ export default function Login({ onLogin }) {
       setError("Invalid credentials");
     } else {
       onLogin(username);
+      window.location.href = "/dashboard";
     }
   };
+
+  if (user) {
+    window.location.href = "/dashboard";
+  }
 
   return (
     <div className="p-6 max-w-md mx-auto">

@@ -7,6 +7,19 @@ export default function Register() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  useState(() => {
+    const x = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        window.location.href = "/dashboard";
+      }
+    };
+    x();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { error } = await supabase.auth.signUp({
@@ -17,6 +30,7 @@ export default function Register() {
       setError("Registration failed");
       setMessage("");
     } else {
+      window.location.href = "/dashboard";
       setMessage("Registered successfully! You can now login.");
       setError("");
     }

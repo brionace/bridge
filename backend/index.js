@@ -8,6 +8,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Simple in-memory fallback store for previews; not for production use
+const previewByFormId = new Map();
+
 app.use(corsMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -15,10 +18,11 @@ app.use(express.urlencoded({ extended: true }));
 // /*
 // create a /api/forms to get drafts from the database
 app.get("/api/forms", async (req, res) => {
+  const { userId } = req.query;
   try {
     const { default: prisma } = await import("./prismaClient.js");
     const forms = await prisma.form.findMany({
-      where: { published: false },
+      where: { published: false, userId },
     });
     res.json(forms);
   } catch (e) {
@@ -29,9 +33,6 @@ app.get("/api/forms", async (req, res) => {
     res.status(500).json({ error: "forms_fetch_failed" });
   }
 });
-
-// Simple in-memory fallback store for previews; not for production use
-const previewByFormId = new Map();
 
 // Public: seed preview (upsert into SQLite and memory)
 app.post("/api/preview", async (req, res) => {
@@ -149,10 +150,7 @@ app.put("/api/forms/:id", async (req, res) => {
 // */
 
 // Mount the rest of /api (may include auth)
-// app.use("/api", formRoutes);
-
-// Routes (may include auth). Keep after public preview endpoints so they don't get blocked.
-// app.use("/api", formRoutes);
+app.use("/api", formRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../utils/axios";
-// import removed: syncFormToBrowserStorage no longer exists
+import { supabase } from "../utils/axios";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -12,7 +12,14 @@ export default function Dashboard() {
     async function fetchServices() {
       setLoading(true);
       try {
-        const res = await axios.get("/api/forms");
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const userId = user?.id;
+        // Pass userId as a query param
+        const res = await axios.get(`/api/forms`, {
+          params: { userId },
+        });
         setForms(res.data);
       } catch {
         setForms([]);

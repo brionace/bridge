@@ -3,7 +3,6 @@ import FormBuilderLeftPanel from "./FormBuilderLeftPanel";
 import FormBuilderRightPanel from "./FormBuilderRightPanel";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { cssStringToObject, extractAppliedStyleObjects } from "../utils/styles";
-// import removed: syncFormToBrowserStorage no longer exists
 import axios, { supabase } from "../utils/axios";
 import StyleToolbox from "./StyleToolbox";
 import { Wand2 } from "lucide-react";
@@ -58,6 +57,17 @@ export default function FormBuilder() {
   const [saving, setSaving] = useState(false);
   const [showStyleToolbox, setShowStyleToolbox] = useState(null);
   const [settings, setSettings] = useState({});
+  const [userId, setUserId] = useState("anon");
+
+  useEffect(() => {
+    async function fetchUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserId(user?.id || "anon");
+    }
+    fetchUser();
+  }, []);
 
   // Persist collapse state across sessions
   useEffect(() => {
@@ -67,6 +77,7 @@ export default function FormBuilder() {
     if (r !== null) setRightCollapsed(r === "1");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   useEffect(() => {
     localStorage.setItem("fb:leftCollapsed", leftCollapsed ? "1" : "0");
   }, [leftCollapsed]);
@@ -252,7 +263,7 @@ export default function FormBuilder() {
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
-    const payload = { name, pages, settings };
+    const payload = { name, pages, settings, userId };
     try {
       let res;
       if (id) {
@@ -273,7 +284,7 @@ export default function FormBuilder() {
     // Just update published status in DB
     if (!id) return;
     try {
-      const payload = { name, pages, published: true };
+      const payload = { name, pages, published: true, userId };
       await axios.put(`/api/forms/${id}`, payload);
       navigate(`/builder/${id}`);
     } catch (err) {

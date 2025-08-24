@@ -189,7 +189,7 @@ export default function DynamicFormFormik({ form = {}, onSubmit, i18n = {} }) {
       case "submit":
         return (
           <div key={idx} className={settings.fieldContainerClass}>
-            <button type="submit" {...commonProps} value={field.value} />
+            <input type="submit" {...commonProps} value={field.value} />
           </div>
         );
       case "submit":
