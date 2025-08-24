@@ -14,7 +14,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/builder" element={<FormBuilder />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Login onLogin={() => { /* handle login */ }} />} />
         <Route path="/builder/:id" element={<FormBuilder />} />
         <Route path="/preview/:formId" element={<Preview />} />
       </Routes>
